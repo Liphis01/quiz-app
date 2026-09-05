@@ -330,6 +330,12 @@ export function useMapReview(
   const [choiceFeedback, setChoiceFeedback] = useState(null);
   const [clickRatingFeedback, setClickRatingFeedback] = useState(null);
   const [typedRatingFeedback, setTypedRatingFeedback] = useState(null);
+  // Once a click/typed pick is graded, the real feedback clears immediately
+  // so the next zone/prompt becomes interactive right away. These hold a
+  // fading echo of what was just picked purely so the rating panel can keep
+  // animating the choice without blocking anything.
+  const [clickRatingEcho, setClickRatingEcho] = useState(null);
+  const [typedRatingEcho, setTypedRatingEcho] = useState(null);
   const [zoneFeedback, setZoneFeedback] = useState(null);
   const [recapSort, setRecapSort] = useState(initialRecapSort);
   const [activePromptQuestionId, setActivePromptQuestionId] = useState(null);
@@ -337,8 +343,8 @@ export function useMapReview(
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
   const choiceRateTimeoutRef = useRef(null);
-  const clickRateTimeoutRef = useRef(null);
-  const typedRateTimeoutRef = useRef(null);
+  const clickEchoTimeoutRef = useRef(null);
+  const typedEchoTimeoutRef = useRef(null);
   const reviewKey = `${mode}:${itemKey(reviewZones)}`;
   const distractorUsageRef = useRef({
     reviewKey: null,
@@ -353,8 +359,8 @@ export function useMapReview(
 
   useEffect(() => {
     window.clearTimeout(choiceRateTimeoutRef.current);
-    window.clearTimeout(clickRateTimeoutRef.current);
-    window.clearTimeout(typedRateTimeoutRef.current);
+    window.clearTimeout(clickEchoTimeoutRef.current);
+    window.clearTimeout(typedEchoTimeoutRef.current);
     setInput("");
     setFoundQuestionIds([]);
     setResolvedQuestionIds([]);
@@ -372,6 +378,8 @@ export function useMapReview(
     setChoiceFeedback(null);
     setClickRatingFeedback(null);
     setTypedRatingFeedback(null);
+    setClickRatingEcho(null);
+    setTypedRatingEcho(null);
     setZoneFeedback(null);
     setRecapSort(initialRecapSort);
     setActivePromptQuestionId(null);
@@ -387,8 +395,8 @@ export function useMapReview(
 
   useEffect(() => () => {
     window.clearTimeout(choiceRateTimeoutRef.current);
-    window.clearTimeout(clickRateTimeoutRef.current);
-    window.clearTimeout(typedRateTimeoutRef.current);
+    window.clearTimeout(clickEchoTimeoutRef.current);
+    window.clearTimeout(typedEchoTimeoutRef.current);
   }, []);
 
   useEffect(() => {
@@ -952,7 +960,6 @@ export function useMapReview(
 
   function rateClickAnswer(quality = 2) {
     if (!clickRatingFeedback || !inlineClickRating) return;
-    if (clickRatingFeedback.rated) return;
 
     const nextQuality = Number(quality);
 
@@ -960,20 +967,23 @@ export function useMapReview(
 
     const { id, questionId, item } = clickRatingFeedback;
 
-    setClickRatingFeedback(current =>
-      current?.id === id ? { ...current, rated: true, ratedQuality: nextQuality } : current
-    );
+    // Commit and advance immediately so the map zooms to the next zone and
+    // starts accepting its answer right away. The panel keeps echoing this
+    // pick — purely a fading animation, no longer blocking anything — until
+    // it's had time to finish.
+    setQuality(questionId, nextQuality);
+    setClickRatingFeedback(null);
+    advanceAfterResolved(item);
 
-    clickRateTimeoutRef.current = window.setTimeout(() => {
-      setQuality(questionId, nextQuality);
-      setClickRatingFeedback(current => (current?.id === id ? null : current));
-      advanceAfterResolved(item);
+    setClickRatingEcho({ id, item, questionId, ratedQuality: nextQuality });
+    window.clearTimeout(clickEchoTimeoutRef.current);
+    clickEchoTimeoutRef.current = window.setTimeout(() => {
+      setClickRatingEcho(current => (current?.id === id ? null : current));
     }, qualityPickHoldMs(nextQuality));
   }
 
   function rateTypedAnswer(quality = 2) {
     if (!typedRatingFeedback || !inlineTypedRating) return;
-    if (typedRatingFeedback.rated) return;
 
     const nextQuality = Number(quality);
 
@@ -981,14 +991,14 @@ export function useMapReview(
 
     const { id, questionId, item } = typedRatingFeedback;
 
-    setTypedRatingFeedback(current =>
-      current?.id === id ? { ...current, rated: true, ratedQuality: nextQuality } : current
-    );
+    setQuality(questionId, nextQuality);
+    setTypedRatingFeedback(null);
+    advanceAfterResolved(item);
 
-    typedRateTimeoutRef.current = window.setTimeout(() => {
-      setQuality(questionId, nextQuality);
-      setTypedRatingFeedback(current => (current?.id === id ? null : current));
-      advanceAfterResolved(item);
+    setTypedRatingEcho({ id, item, questionId, ratedQuality: nextQuality });
+    window.clearTimeout(typedEchoTimeoutRef.current);
+    typedEchoTimeoutRef.current = window.setTimeout(() => {
+      setTypedRatingEcho(current => (current?.id === id ? null : current));
     }, qualityPickHoldMs(nextQuality));
   }
 
@@ -1144,6 +1154,7 @@ export function useMapReview(
     choiceFeedback: activeChoiceFeedback,
     choiceOptions: visibleChoiceOptions,
     clickRatingFeedback,
+    clickRatingEcho,
     currentPromptItem,
     dueCodes: visibleDueCodes,
     feedbackTone,
@@ -1190,6 +1201,7 @@ export function useMapReview(
     showRecapSections: hasCorrectRecapRows && hasWrongRecapRows,
     skipCurrentPrompt,
     typedRatingFeedback,
+    typedRatingEcho,
     toggleRecapSort
   };
 }

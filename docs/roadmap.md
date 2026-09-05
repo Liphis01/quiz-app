@@ -129,6 +129,7 @@
 - regarder les essais et le temps mis pour suggérer une qualité
 - un truc pour relier les questions entre elles (ex: france -> pays du monde, capitale, drapeau, ...)
 - comment interroger sur les explorateurs pour tenir compte de l'année et de ce qu'ils ont découvert ?
+- un mode où il faut ranger des trucs (par exemple des musiques parmi leurs albums, des auteurs parmi leurs mouvements littéraires, ...)
 
 
 ## Conseils/idées issus de la littérature scientifique

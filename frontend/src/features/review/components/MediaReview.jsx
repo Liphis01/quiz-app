@@ -1082,6 +1082,7 @@ export default function MediaReview({
     skipCurrentPrompt,
     toggleRecapSort = () => {},
     typedRatingFeedback,
+    typedRatingEcho,
     wrongAnsweredCount
   } = useMediaReview(reviewItems, onComplete, submitAnswer, {
     allowPartialSubmit,
@@ -1296,8 +1297,12 @@ export default function MediaReview({
     Boolean(typedRatingFeedback) &&
     showQualityControls
   );
-  const showControlBandTypedRating = showTypedRating && !showFocusedTypePromptBoard;
-  const typedRatingItem = typedRatingFeedback?.item || null;
+  // Rating clears the moment it's graded so the next prompt is immediately
+  // interactive; the echo keeps the panel showing that pick's animation for
+  // a beat afterward, purely as a non-blocking trailing visual.
+  const showTypedRatingPanel = showTypedRating || Boolean(typedRatingEcho);
+  const showControlBandTypedRating = showTypedRatingPanel && !showFocusedTypePromptBoard;
+  const typedRatingItem = typedRatingFeedback?.item || typedRatingEcho?.item || null;
   const typedRatingItemRelearning = Boolean(
     typedRatingItem && isRelearningGroupItem(group, typedRatingItem)
   );
@@ -2495,13 +2500,16 @@ export default function MediaReview({
   }
 
   function renderTypedRatingPanel({ inlineTypePrompt = false } = {}) {
-    if (!showTypedRating || !typedRatingItem) return null;
+    if (!showTypedRatingPanel || !typedRatingItem) return null;
 
     return (
       <div
         data-image-typed-rating
         data-image-type-prompt-rating={inlineTypePrompt ? "true" : undefined}
-        style={inlineTypePrompt ? typePromptInlineRatingStyle : typedRatingPanelStyle}
+        style={{
+          ...(inlineTypePrompt ? typePromptInlineRatingStyle : typedRatingPanelStyle),
+          pointerEvents: showTypedRating ? "auto" : "none"
+        }}
       >
         <div style={typedRatingCopyStyle}>
           <span style={typedRatingKickerStyle}>Qualité</span>
@@ -2523,7 +2531,7 @@ export default function MediaReview({
                 key={option.value}
                 type="button"
                 data-image-typed-quality={option.value}
-                disabled={typedRatingFeedback.rated}
+                disabled={!showTypedRating}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => {
                   rateTypedAnswer(option.value);
@@ -2533,7 +2541,7 @@ export default function MediaReview({
                   ...(inlineTypePrompt
                     ? typePromptInlineRatingButtonStyle
                     : typedRatingButtonStyle),
-                  animation: typedRatingFeedback.ratedQuality === option.value
+                  animation: typedRatingEcho?.ratedQuality === option.value
                     ? qualityPickAnimation(option.value)
                     : undefined
                 }}
@@ -2554,7 +2562,7 @@ export default function MediaReview({
   }
 
   function renderTypePromptStage() {
-    const hasInlineRating = showTypedRating && typedRatingItem;
+    const hasInlineRating = showTypedRatingPanel && typedRatingItem;
 
     return (
       <div

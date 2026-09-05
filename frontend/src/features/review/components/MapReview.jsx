@@ -281,6 +281,7 @@ export default function MapReview({
     choiceFeedback,
     choiceOptions,
     clickRatingFeedback,
+    clickRatingEcho,
     dueCodes,
     feedbackTone,
     flashCodes,
@@ -325,6 +326,7 @@ export default function MapReview({
     submitError,
     submitting,
     typedRatingFeedback,
+    typedRatingEcho,
     toggleRecapSort
   } = useMapReview(reviewZones, onComplete, submitAnswer, {
     allowPartialSubmit,
@@ -405,7 +407,11 @@ export default function MapReview({
     Boolean(typedRatingFeedback) &&
     showQualityControls
   );
-  const typedRatingItem = typedRatingFeedback?.item || null;
+  // Rating clears the moment it's graded so the next prompt is immediately
+  // interactive; the echo keeps the panel showing that pick's animation for
+  // a beat afterward, purely as a non-blocking trailing visual.
+  const showTypedRatingPanel = showTypedRating || Boolean(typedRatingEcho);
+  const typedRatingItem = typedRatingFeedback?.item || typedRatingEcho?.item || null;
   const typedRatingItemRelearning = Boolean(
     typedRatingItem && isRelearningGroupItem(group, typedRatingItem)
   );
@@ -419,7 +425,8 @@ export default function MapReview({
     Boolean(clickRatingFeedback) &&
     showQualityControls
   );
-  const clickRatingItem = clickRatingFeedback?.item || null;
+  const showClickRatingPanel = showClickRating || Boolean(clickRatingEcho);
+  const clickRatingItem = clickRatingFeedback?.item || clickRatingEcho?.item || null;
   const clickRatingItemRelearning = Boolean(
     clickRatingItem && isRelearningGroupItem(group, clickRatingItem)
   );
@@ -1170,8 +1177,11 @@ export default function MapReview({
                 Zoom auto
               </button>
             )}
-            {showClickRating && clickRatingItem && (
-              <div style={inlineRatingOverlayStyle}>
+            {showClickRatingPanel && clickRatingItem && (
+              <div style={{
+                ...inlineRatingOverlayStyle,
+                pointerEvents: showClickRating ? "auto" : "none"
+              }}>
                 <div data-map-click-rating style={mapInlineRatingPanelStyle}>
                   <div style={typedRatingCopyStyle}>
                     <span style={typedRatingKickerStyle}>Qualité</span>
@@ -1188,12 +1198,12 @@ export default function MapReview({
                           key={option.value}
                           type="button"
                           data-map-click-quality={option.value}
-                          disabled={clickRatingFeedback.rated}
+                          disabled={!showClickRating}
                           onMouseDown={(event) => event.preventDefault()}
                           onClick={() => rateClickAnswer(option.value)}
                           style={{
                             ...typedRatingButtonStyle,
-                            animation: clickRatingFeedback.ratedQuality === option.value
+                            animation: clickRatingEcho?.ratedQuality === option.value
                               ? qualityPickAnimation(option.value)
                               : undefined
                           }}
@@ -1304,8 +1314,11 @@ export default function MapReview({
                   transition: "border 0.18s ease, box-shadow 0.18s ease"
                 }}
               />
-              {showTypedRating && typedRatingItem && (
-                <div style={typedInputRatingOverlayStyle}>
+              {showTypedRatingPanel && typedRatingItem && (
+                <div style={{
+                  ...typedInputRatingOverlayStyle,
+                  pointerEvents: showTypedRating ? "auto" : "none"
+                }}>
                   <div data-map-typed-rating style={mapTypedInputRatingPanelStyle}>
                     <div style={typedInputRatingCopyStyle}>
                       <span style={typedRatingKickerStyle}>Qualité</span>
@@ -1317,7 +1330,7 @@ export default function MapReview({
                           key={option.value}
                           type="button"
                           data-map-typed-quality={option.value}
-                          disabled={typedRatingFeedback.rated}
+                          disabled={!showTypedRating}
                           onMouseDown={(event) => event.preventDefault()}
                           onClick={() => {
                             rateTypedAnswer(option.value);
@@ -1325,7 +1338,7 @@ export default function MapReview({
                           }}
                           style={{
                             ...typedInputRatingButtonStyle,
-                            animation: typedRatingFeedback.ratedQuality === option.value
+                            animation: typedRatingEcho?.ratedQuality === option.value
                               ? qualityPickAnimation(option.value)
                               : undefined
                           }}

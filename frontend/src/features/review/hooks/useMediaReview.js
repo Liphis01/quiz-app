@@ -471,16 +471,20 @@ export function useMediaReview(
   const [feedbackTone, setFeedbackTone] = useState(null);
   const [interactionFeedback, setInteractionFeedback] = useState(null);
   const [typedRatingFeedback, setTypedRatingFeedback] = useState(null);
+  // Rating clears the moment it's graded so the next prompt is immediately
+  // interactive; the echo keeps the panel showing that pick's animation for
+  // a beat afterward, purely as a non-blocking trailing visual.
+  const [typedRatingEcho, setTypedRatingEcho] = useState(null);
   const [resultMode, setResultMode] = useState(false);
   const [activePromptQuestionId, setActivePromptQuestionId] = useState(null);
   const [recapSort, setRecapSort] = useState(initialRecapSort);
   const submittingRef = useRef(false);
   const choiceRateTimeoutRef = useRef(null);
-  const typedRateTimeoutRef = useRef(null);
+  const typedEchoTimeoutRef = useRef(null);
 
   useEffect(() => {
     window.clearTimeout(choiceRateTimeoutRef.current);
-    window.clearTimeout(typedRateTimeoutRef.current);
+    window.clearTimeout(typedEchoTimeoutRef.current);
     setInput("");
     setFoundQuestionIds([]);
     setResolvedQuestionIds([]);
@@ -493,6 +497,7 @@ export function useMediaReview(
     setFeedbackTone(null);
     setInteractionFeedback(null);
     setTypedRatingFeedback(null);
+    setTypedRatingEcho(null);
     setResultMode(false);
     setActivePromptQuestionId(null);
     setRecapSort(initialRecapSort);
@@ -500,7 +505,7 @@ export function useMediaReview(
 
   useEffect(() => () => {
     window.clearTimeout(choiceRateTimeoutRef.current);
-    window.clearTimeout(typedRateTimeoutRef.current);
+    window.clearTimeout(typedEchoTimeoutRef.current);
   }, []);
 
   const foundQuestionIdSet = useMemo(
@@ -1078,7 +1083,6 @@ export function useMediaReview(
 
   function rateTypedAnswer(quality = defaultImageSuccessQuality()) {
     if (!typedRatingFeedback || !inlineTypedRating) return;
-    if (typedRatingFeedback.rated) return;
 
     const nextQuality = Number(quality);
 
@@ -1086,14 +1090,18 @@ export function useMediaReview(
 
     const { id, questionId, item } = typedRatingFeedback;
 
-    setTypedRatingFeedback(current =>
-      current?.id === id ? { ...current, rated: true, ratedQuality: nextQuality } : current
-    );
+    // Commit and advance immediately so the next prompt (and its input)
+    // becomes interactive right away. The panel keeps echoing this pick —
+    // purely a fading animation, no longer blocking anything — until it's
+    // had time to finish.
+    setQuality(questionId, nextQuality);
+    setTypedRatingFeedback(null);
+    advanceTypePromptAfterResolved(item);
 
-    typedRateTimeoutRef.current = window.setTimeout(() => {
-      setQuality(questionId, nextQuality);
-      setTypedRatingFeedback(current => (current?.id === id ? null : current));
-      advanceTypePromptAfterResolved(item);
+    setTypedRatingEcho({ id, item, questionId, ratedQuality: nextQuality });
+    window.clearTimeout(typedEchoTimeoutRef.current);
+    typedEchoTimeoutRef.current = window.setTimeout(() => {
+      setTypedRatingEcho(current => (current?.id === id ? null : current));
     }, qualityPickHoldMs(nextQuality));
   }
 
@@ -1321,6 +1329,7 @@ export function useMediaReview(
     setQuality,
     skipCurrentPrompt,
     typedRatingFeedback,
+    typedRatingEcho,
     toggleRecapSort,
     wrongAnsweredCount
   };
