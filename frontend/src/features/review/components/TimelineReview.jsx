@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { sendTimelineAnswer } from "../../../api/review";
 import { fadeInStyle } from "../../../shared/styles";
+import { qualityPickAnimation } from "../../../shared/answerFeedback";
+import { useQualityPickFlash } from "../../../shared/useQualityPickHold";
 import { buildSessionAnchors, describeValue } from "../../timeline/anchors";
 import {
   buildAnswerSlice,
@@ -277,6 +279,7 @@ export default function TimelineReview({
   const [quickInput, setQuickInput] = useState("");
   const [quickError, setQuickError] = useState("");
   const inputRef = useRef(null);
+  const { flashQuality, isFlashing } = useQualityPickFlash();
   const activeId = activeItem?.question_id ?? null;
 
   // The map above stays the same picture on every card (that is what spatial
@@ -735,7 +738,10 @@ export default function TimelineReview({
                       type="button"
                       data-timeline-quality={option.value}
                       data-active={active ? "true" : "false"}
-                      onClick={() => adjustQuality(option.value)}
+                      onClick={() => {
+                        adjustQuality(option.value);
+                        flashQuality(activeId, option.value);
+                      }}
                       style={{
                         background: active ? option.activeBg : "#161616",
                         border: `1px solid ${active ? option.color : "#333"}`,
@@ -745,7 +751,10 @@ export default function TimelineReview({
                         fontSize: "12px",
                         fontWeight: 800,
                         padding: "6px 10px",
-                        transition: "background 0.14s ease, color 0.14s ease, border-color 0.14s ease"
+                        transition: "background 0.14s ease, color 0.14s ease, border-color 0.14s ease",
+                        animation: isFlashing(activeId, option.value)
+                          ? qualityPickAnimation(option.value)
+                          : undefined
                       }}
                     >
                       {option.value} {option.label}

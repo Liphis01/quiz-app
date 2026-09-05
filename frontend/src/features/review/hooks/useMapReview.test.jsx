@@ -9,6 +9,7 @@ vi.mock("../../../api/review", () => ({
 
 afterEach(() => {
   vi.clearAllMocks();
+  vi.useRealTimers();
 });
 
 function labels(rows) {
@@ -234,9 +235,14 @@ describe("useMapReview recap sorting", () => {
     expect(result.current.canFinishReview).toBe(false);
     expect(result.current.qualityByQuestionId[1]).toBeUndefined();
 
+    vi.useFakeTimers();
     act(() => {
       result.current.rateTypedAnswer(3);
     });
+    act(() => {
+      vi.advanceTimersByTime(420);
+    });
+    vi.useRealTimers();
 
     expect(result.current.typedRatingFeedback).toBeNull();
     expect(result.current.showRecap).toBe(true);
@@ -312,9 +318,14 @@ describe("useMapReview recap sorting", () => {
     expect(result.current.canFinishReview).toBe(false);
     expect(result.current.qualityByQuestionId[1]).toBeUndefined();
 
+    vi.useFakeTimers();
     act(() => {
       result.current.rateClickAnswer(3);
     });
+    act(() => {
+      vi.advanceTimersByTime(420);
+    });
+    vi.useRealTimers();
 
     expect(result.current.clickRatingFeedback).toBeNull();
     expect(result.current.showRecap).toBe(true);
@@ -838,6 +849,9 @@ describe("useMapReview recap sorting", () => {
       act(() => {
         result.current.rateChoice(3);
       });
+      act(() => {
+        vi.advanceTimersByTime(420);
+      });
 
       // The recap opens pre-filled with the inline grade — it must not be reset
       // to the default 2 by the recap's own quality rebuild.
@@ -895,9 +909,14 @@ describe("useMapReview recap sorting", () => {
     });
     expect(result.current.choiceFeedback?.isCorrect).toBe(false);
 
+    vi.useFakeTimers();
     act(() => {
       result.current.rateChoice();
     });
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    vi.useRealTimers();
 
     expect(result.current.showRecap).toBe(true);
     expect(result.current.qualityByQuestionId[target.question_id]).toBe(0);

@@ -12,6 +12,8 @@ import { isAnswerable, qualityColors } from "../sequenceRail";
 import { matchesAnswerValue } from "../answerPolicy";
 import { buildChoiceOptions } from "../distractorSelection";
 import { eventDigit } from "../keyboardShortcuts";
+import { qualityPickAnimation } from "../../../shared/answerFeedback";
+import { useQualityPickFlash } from "../../../shared/useQualityPickHold";
 
 const CHOICE_COUNT = 4;
 
@@ -124,6 +126,7 @@ export default function SequenceReview({
   const [reciteRun, setReciteRun] = useState([]);
   const [results, setResults] = useState(null);
   const [qualities, setQualities] = useState({});
+  const { flashQuality, isFlashing } = useQualityPickFlash();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
 
@@ -598,16 +601,20 @@ export default function SequenceReview({
             key={option.value}
             data-sequence-quality={option.value}
             data-active={selected === option.value ? "" : undefined}
-            onClick={() =>
-              setQualities(prev => ({ ...prev, [questionId]: option.value }))
-            }
+            onClick={() => {
+              setQualities(prev => ({ ...prev, [questionId]: option.value }));
+              flashQuality(questionId, option.value);
+            }}
             style={{
               ...buttonStyle,
               background: selected === option.value ? "#2f3a2f" : "#1b1b1b",
               borderColor: selected === option.value ? "#4a7a52" : "#2d2d2d",
               fontSize: "12px",
               fontWeight: 500,
-              padding: "4px 9px"
+              padding: "4px 9px",
+              animation: isFlashing(questionId, option.value)
+                ? qualityPickAnimation(option.value)
+                : undefined
             }}
             type="button"
           >

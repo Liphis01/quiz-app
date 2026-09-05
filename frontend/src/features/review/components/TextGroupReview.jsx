@@ -12,6 +12,8 @@ import {
 } from "../relearningGrades";
 import { matchesAnswerValue } from "../answerPolicy";
 import { eventDigit } from "../keyboardShortcuts";
+import { qualityPickAnimation } from "../../../shared/answerFeedback";
+import { useQualityPickFlash, useQualityPickHold } from "../../../shared/useQualityPickHold";
 
 const qualityOptions = [
   { value: 0, icon: "❌", title: "Faux" },
@@ -189,6 +191,8 @@ export default function TextGroupReview({
   // recap
   const [qualities, setQualities] = useState({});
   const [pendingQualityQuestionId, setPendingQualityQuestionId] = useState(null);
+  const { pendingQuality: pendingHoldQuality, hold: holdQuality } = useQualityPickHold();
+  const { flashQuality: flashRecapQuality, isFlashing: isRecapFlashing } = useQualityPickFlash();
   const [submitting, setSubmitting] = useState(false);
   const [selectedRecapIndex, setSelectedRecapIndex] = useState(0);
 
@@ -585,14 +589,15 @@ export default function TextGroupReview({
 
       if (quality !== null) {
         event.preventDefault();
-        rateSelfGradeQuality(quality);
+        holdQuality(quality, rateSelfGradeQuality);
         return;
       }
 
       if (event.key === "Enter") {
         event.preventDefault();
-        rateSelfGradeQuality(
-          activeSelfGradeItem ? defaultPassQuality(activeSelfGradeItem) : 2
+        holdQuality(
+          activeSelfGradeItem ? defaultPassQuality(activeSelfGradeItem) : 2,
+          rateSelfGradeQuality
         );
       }
     }
@@ -602,6 +607,7 @@ export default function TextGroupReview({
   }, [
     activeSelfGradeItem,
     defaultPassQuality,
+    holdQuality,
     isSelfGradedTypeAll,
     phase,
     rateSelfGradeQuality,
@@ -658,13 +664,16 @@ export default function TextGroupReview({
 
       if (quality !== null) {
         event.preventDefault();
-        ratePendingTypedQuality(quality);
+        holdQuality(quality, ratePendingTypedQuality);
         return;
       }
 
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        ratePendingTypedQuality(pendingItem ? defaultPassQuality(pendingItem) : 2);
+        holdQuality(
+          pendingItem ? defaultPassQuality(pendingItem) : 2,
+          ratePendingTypedQuality
+        );
       }
     }
 
@@ -672,6 +681,7 @@ export default function TextGroupReview({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
     defaultPassQuality,
+    holdQuality,
     items,
     pendingQualityQuestionId,
     phase,
@@ -805,6 +815,7 @@ export default function TextGroupReview({
                         onClick={() => {
                           setSelectedRecapIndex(index);
                           setItemQuality(item.question_id, option.value);
+                          flashRecapQuality(item.question_id, option.value);
                         }}
                         style={{
                           background: active ? colors.background : "#222",
@@ -813,7 +824,10 @@ export default function TextGroupReview({
                           color: active ? colors.color : "#999",
                           cursor: "pointer",
                           fontSize: "15px",
-                          padding: "6px 9px"
+                          padding: "6px 9px",
+                          animation: isRecapFlashing(item.question_id, option.value)
+                            ? qualityPickAnimation(option.value)
+                            : undefined
                         }}
                       >
                         {option.icon}
@@ -1090,12 +1104,16 @@ export default function TextGroupReview({
                           type="button"
                           aria-pressed={qualities[item.question_id] === option.value}
                           data-text-self-grade-quality={option.value}
-                          onClick={() => rateSelfGradeQuality(option.value)}
+                          disabled={pendingHoldQuality !== null}
+                          onClick={() => holdQuality(option.value, rateSelfGradeQuality)}
                           style={{
                             ...textTypedRatingButtonStyle,
                             background: colors.background,
                             border: colors.border,
-                            color: colors.color
+                            color: colors.color,
+                            animation: pendingHoldQuality === option.value
+                              ? qualityPickAnimation(option.value)
+                              : undefined
                           }}
                         >
                           <span aria-hidden="true" style={keyCapStyle}>
@@ -1173,8 +1191,14 @@ export default function TextGroupReview({
                             key={option.value}
                             type="button"
                             data-text-typed-quality={option.value}
-                            onClick={() => ratePendingTypedQuality(option.value)}
-                            style={textTypedRatingButtonStyle}
+                            disabled={pendingHoldQuality !== null}
+                            onClick={() => holdQuality(option.value, ratePendingTypedQuality)}
+                            style={{
+                              ...textTypedRatingButtonStyle,
+                              animation: pendingHoldQuality === option.value
+                                ? qualityPickAnimation(option.value)
+                                : undefined
+                            }}
                           >
                             <span aria-hidden="true" style={keyCapStyle}>
                               {option.value}

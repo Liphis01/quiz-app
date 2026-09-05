@@ -21,6 +21,7 @@ vi.mock("../../../api/review", () => ({
 
 afterEach(() => {
   vi.clearAllMocks();
+  vi.useRealTimers();
 });
 
 function optionIds(items) {
@@ -157,9 +158,14 @@ describe("useMediaReview", () => {
     expect(result.current.resultMode).toBe(false);
     expect(result.current.canFinishReview).toBe(false);
 
+    vi.useFakeTimers();
     act(() => {
       result.current.rateTypedAnswer(3);
     });
+    act(() => {
+      vi.advanceTimersByTime(420);
+    });
+    vi.useRealTimers();
 
     expect(result.current.typedRatingFeedback).toBeNull();
     expect(result.current.resultMode).toBe(true);
@@ -842,6 +848,9 @@ describe("useMediaReview", () => {
       act(() => {
         result.current.rateChoice(3);
       });
+      act(() => {
+        vi.advanceTimersByTime(420);
+      });
 
       // The group ends on the recap, pre-filled with the inline grade, and
       // nothing is submitted until the recap is validated.
@@ -899,9 +908,14 @@ describe("useMediaReview", () => {
     });
     expect(result.current.interactionFeedback?.isCorrect).toBe(false);
 
+    vi.useFakeTimers();
     act(() => {
       result.current.rateChoice();
     });
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+    vi.useRealTimers();
 
     expect(result.current.resultMode).toBe(true);
     expect(result.current.qualityByQuestionId[prompt.question_id]).toBe(0);

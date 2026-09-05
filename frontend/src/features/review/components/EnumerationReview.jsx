@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { qualityPickAnimation } from "../../../shared/answerFeedback";
+import { useQualityPickHold } from "../../../shared/useQualityPickHold";
 
 const qualities = [[1, "Difficile"], [2, "Bien"], [3, "Facile"]];
 
@@ -21,6 +23,7 @@ export default function EnumerationReview({
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const { pendingQuality, hold } = useQualityPickHold();
   const input = useRef(null);
 
   useEffect(() => {
@@ -140,9 +143,9 @@ export default function EnumerationReview({
           {result.duplicates?.map(answer => <div key={`duplicate:${answer}`} style={{ color: "#f7d78d" }}>Doublon : {answer}</div>)}
           {result.unmatched?.map(answer => <div key={`unmatched:${answer}`} style={{ color: "#f7d78d" }}>Non reconnu : {answer}</div>)}
           {result.correct && !trainingMode
-            ? <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{qualities.map(([value, label]) => <button key={value} type="button" onClick={() => commit(value)} disabled={busy} style={{ background: "#242424", border: "1px solid #555", borderRadius: "9px", color: "#fff", padding: "10px 14px" }}>{label}</button>)}</div>
+            ? <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>{qualities.map(([value, label]) => <button key={value} type="button" onClick={() => hold(value, commit)} disabled={busy || pendingQuality !== null} style={{ background: "#242424", border: "1px solid #555", borderRadius: "9px", color: "#fff", padding: "10px 14px", animation: pendingQuality === value ? qualityPickAnimation(value) : undefined }}>{label}</button>)}</div>
             : !result.correct && !trainingMode
-              ? <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}><button type="button" onClick={() => commit(0)} disabled={busy} style={{ background: "#442020", border: "1px solid #7f1d1d", borderRadius: "9px", color: "#fff", padding: "10px 14px" }}>Again</button><button type="button" onClick={() => commit(1)} disabled={busy} style={{ background: "#463418", border: "1px solid #92400e", borderRadius: "9px", color: "#fff", padding: "10px 14px" }}>Close</button></div>
+              ? <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}><button type="button" onClick={() => hold(0, commit)} disabled={busy || pendingQuality !== null} style={{ background: "#442020", border: "1px solid #7f1d1d", borderRadius: "9px", color: "#fff", padding: "10px 14px", animation: pendingQuality === 0 ? qualityPickAnimation(0) : undefined }}>Again</button><button type="button" onClick={() => hold(1, commit)} disabled={busy || pendingQuality !== null} style={{ background: "#463418", border: "1px solid #92400e", borderRadius: "9px", color: "#fff", padding: "10px 14px", animation: pendingQuality === 1 ? qualityPickAnimation(1) : undefined }}>Close</button></div>
               : <button type="button" onClick={() => commit(0)} disabled={busy} style={{ background: "#242424", border: "1px solid #555", borderRadius: "9px", color: "#fff", padding: "10px 14px", width: "fit-content" }}>{trainingMode && result.correct ? "Suivant" : "Continuer"}</button>}
         </div>
       )}

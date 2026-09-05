@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import TextGroupReview from "./TextGroupReview";
 
@@ -6,6 +6,7 @@ describe("TextGroupReview self-graded type_all", () => {
   afterEach(() => {
     cleanup();
     vi.clearAllMocks();
+    vi.useRealTimers();
   });
 
   const textItems = [
@@ -74,7 +75,13 @@ describe("TextGroupReview self-graded type_all", () => {
     expect(screen.queryByText("Déjà répondu.")).not.toBeInTheDocument();
     expect(submitAnswer).not.toHaveBeenCalled();
 
+    vi.useFakeTimers();
     fireEvent.click(container.querySelector("[data-text-self-grade-quality='3']"));
+
+    act(() => {
+      vi.advanceTimersByTime(420);
+    });
+    vi.useRealTimers();
 
     expect(screen.getByText("chien")).toBeInTheDocument();
     expect(screen.queryByText("chat")).not.toBeInTheDocument();

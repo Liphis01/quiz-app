@@ -16,6 +16,7 @@ import {
 } from "../answerPolicy";
 import { buildChoiceOptions } from "../distractorSelection";
 import { reviewModeFallback } from "../reviewModeCompatibility";
+import { qualityPickHoldMs } from "../../../shared/answerFeedback";
 
 export const IMAGE_RECAP_UNANSWERED = "unanswered";
 
@@ -474,8 +475,12 @@ export function useMediaReview(
   const [activePromptQuestionId, setActivePromptQuestionId] = useState(null);
   const [recapSort, setRecapSort] = useState(initialRecapSort);
   const submittingRef = useRef(false);
+  const choiceRateTimeoutRef = useRef(null);
+  const typedRateTimeoutRef = useRef(null);
 
   useEffect(() => {
+    window.clearTimeout(choiceRateTimeoutRef.current);
+    window.clearTimeout(typedRateTimeoutRef.current);
     setInput("");
     setFoundQuestionIds([]);
     setResolvedQuestionIds([]);
@@ -492,6 +497,11 @@ export function useMediaReview(
     setActivePromptQuestionId(null);
     setRecapSort(initialRecapSort);
   }, [reviewKey]);
+
+  useEffect(() => () => {
+    window.clearTimeout(choiceRateTimeoutRef.current);
+    window.clearTimeout(typedRateTimeoutRef.current);
+  }, []);
 
   const foundQuestionIdSet = useMemo(
     () => questionIdSet(foundQuestionIds),
@@ -1045,24 +1055,46 @@ export function useMediaReview(
   // the reveal so the next prompt surfaces. A wrong pick stays quality 0.
   function rateChoice(quality) {
     if (!interactionFeedback || !inlineChoiceRating) return;
+    if (interactionFeedback.rated) return;
 
-    if (quality !== undefined && quality !== null) {
-      setQuality(interactionFeedback.correctQuestionId, quality);
-    }
+    const { id, correctQuestionId } = interactionFeedback;
 
-    setInteractionFeedback(null);
+    // Mark the pick rated (drives the button's animation + disables its
+    // siblings) without touching the fields the tile's own reveal animation
+    // and useFlip key depend on, then hold the actual grade+advance until
+    // that animation has had time to finish.
+    setInteractionFeedback(current =>
+      current?.id === id ? { ...current, rated: true, ratedQuality: quality } : current
+    );
+
+    choiceRateTimeoutRef.current = window.setTimeout(() => {
+      if (quality !== undefined && quality !== null) {
+        setQuality(correctQuestionId, quality);
+      }
+
+      setInteractionFeedback(current => (current?.id === id ? null : current));
+    }, qualityPickHoldMs(quality ?? 0));
   }
 
   function rateTypedAnswer(quality = defaultImageSuccessQuality()) {
     if (!typedRatingFeedback || !inlineTypedRating) return;
+    if (typedRatingFeedback.rated) return;
 
     const nextQuality = Number(quality);
 
     if (![1, 2, 3].includes(nextQuality)) return;
 
-    setQuality(typedRatingFeedback.questionId, nextQuality);
-    setTypedRatingFeedback(null);
-    advanceTypePromptAfterResolved(typedRatingFeedback.item);
+    const { id, questionId, item } = typedRatingFeedback;
+
+    setTypedRatingFeedback(current =>
+      current?.id === id ? { ...current, rated: true, ratedQuality: nextQuality } : current
+    );
+
+    typedRateTimeoutRef.current = window.setTimeout(() => {
+      setQuality(questionId, nextQuality);
+      setTypedRatingFeedback(current => (current?.id === id ? null : current));
+      advanceTypePromptAfterResolved(item);
+    }, qualityPickHoldMs(nextQuality));
   }
 
   const displayItems = useMemo(() => {

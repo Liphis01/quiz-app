@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import { getMediaKind, resolveMediaUrl } from "../../../shared/media";
 import { fadeInStyle, letterboxPatternBg } from "../../../shared/styles";
 import { useFlip } from "../../../shared/useFlip";
+import { qualityPickAnimation } from "../../../shared/answerFeedback";
+import { useQualityPickFlash } from "../../../shared/useQualityPickHold";
 import {
   IMAGE_MODE_MULTIPLE_CHOICE_IMAGE,
   IMAGE_MODE_MULTIPLE_CHOICE_LABEL,
@@ -1038,6 +1040,7 @@ export default function MediaReview({
   const [previewRow, setPreviewRow] = useState(null);
   const [selectedRecapQuestionId, setSelectedRecapQuestionId] = useState(null);
   const [wrongInputShakeId, setWrongInputShakeId] = useState(0);
+  const { flashQuality: flashRecapQuality, isFlashing: isRecapFlashing } = useQualityPickFlash();
   const imageRecapRowRefs = useRef(new Map());
   const {
     activeQuestionId,
@@ -2520,14 +2523,20 @@ export default function MediaReview({
                 key={option.value}
                 type="button"
                 data-image-typed-quality={option.value}
+                disabled={typedRatingFeedback.rated}
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => {
                   rateTypedAnswer(option.value);
                   focusAnswerInput();
                 }}
-                style={inlineTypePrompt
-                  ? typePromptInlineRatingButtonStyle
-                  : typedRatingButtonStyle}
+                style={{
+                  ...(inlineTypePrompt
+                    ? typePromptInlineRatingButtonStyle
+                    : typedRatingButtonStyle),
+                  animation: typedRatingFeedback.ratedQuality === option.value
+                    ? qualityPickAnimation(option.value)
+                    : undefined
+                }}
               >
                 <span aria-hidden="true" style={keyCapStyle}>
                   {option.value}
@@ -2600,6 +2609,7 @@ export default function MediaReview({
         <button
           type="button"
           data-image-choice-continue
+          disabled={interactionFeedback.rated}
           onClick={() => rateChoice()}
           style={{
             ...choiceContinueButtonStyle,
@@ -2639,11 +2649,15 @@ export default function MediaReview({
           key={option.value}
           type="button"
           data-image-choice-quality={option.value}
+          disabled={interactionFeedback.rated}
           onClick={() => rateChoice(option.value)}
           style={{
             ...choiceQualityButtonStyle(),
             ...(onTiles ? choiceQualityTileStyle : null),
-            order: option.value
+            order: option.value,
+            animation: interactionFeedback.ratedQuality === option.value
+              ? qualityPickAnimation(option.value)
+              : undefined
           }}
         >
           {onTiles ? (
@@ -2675,6 +2689,7 @@ export default function MediaReview({
 
   function renderImageRecapQualityButton({
     disabled = false,
+    flashKey,
     option,
     selected,
     title = option.title,
@@ -2691,7 +2706,10 @@ export default function MediaReview({
         aria-pressed={selected}
         data-image-recap-quality={option.value}
         disabled={disabled}
-        onClick={onClick}
+        onClick={(event) => {
+          onClick(event);
+          flashRecapQuality(flashKey, option.value);
+        }}
         style={{
           ...imageRecapQualityButtonStyle,
           background: selected
@@ -2710,7 +2728,10 @@ export default function MediaReview({
               ? "#555"
               : "#999",
           cursor: disabled ? "not-allowed" : "pointer",
-          opacity: disabled ? 0.65 : 1
+          opacity: disabled ? 0.65 : 1,
+          animation: isRecapFlashing(flashKey, option.value)
+            ? qualityPickAnimation(option.value)
+            : undefined
         }}
       >
         {option.icon}
@@ -2959,6 +2980,7 @@ export default function MediaReview({
 
                         return renderImageRecapQualityButton({
                           disabled,
+                          flashKey: "bulk",
                           option,
                           selected,
                           title: disabled
@@ -3132,6 +3154,7 @@ export default function MediaReview({
                         <div style={imageRecapQualityCellStyle}>
                           {rowQualityOptions.map(option =>
                             renderImageRecapQualityButton({
+                              flashKey: row.item.question_id,
                               option,
                               selected: displaySelectedQuality === option.value,
                               title: `${answerLabel(row.item)} : ${option.title}`,

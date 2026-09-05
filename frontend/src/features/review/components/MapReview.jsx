@@ -4,6 +4,8 @@ import { resolveMediaUrl } from "../../../shared/media";
 import { fadeInStyle } from "../../../shared/styles";
 import { centerListItem } from "../../../shared/scroll";
 import { useFlip } from "../../../shared/useFlip";
+import { qualityPickAnimation } from "../../../shared/answerFeedback";
+import { useQualityPickFlash } from "../../../shared/useQualityPickHold";
 import {
   MAP_RECAP_UNANSWERED,
   useMapReview
@@ -387,6 +389,7 @@ export default function MapReview({
   const [activeMapZoom, setActiveMapZoom] = useState({ direction: 0, version: 0 });
   const [recapMapZoom, setRecapMapZoom] = useState({ direction: 0, version: 0 });
   const [wrongInputShakeId, setWrongInputShakeId] = useState(0);
+  const { flashQuality: flashRecapQuality, isFlashing: isRecapFlashing } = useQualityPickFlash();
   const recapRowKey = recapRows.map(row => row.item.code).join("|");
   const recapGridColumns = showQualityControls
     ? recapTableGridColumns
@@ -1185,9 +1188,15 @@ export default function MapReview({
                           key={option.value}
                           type="button"
                           data-map-click-quality={option.value}
+                          disabled={clickRatingFeedback.rated}
                           onMouseDown={(event) => event.preventDefault()}
                           onClick={() => rateClickAnswer(option.value)}
-                          style={typedRatingButtonStyle}
+                          style={{
+                            ...typedRatingButtonStyle,
+                            animation: clickRatingFeedback.ratedQuality === option.value
+                              ? qualityPickAnimation(option.value)
+                              : undefined
+                          }}
                         >
                           <span aria-hidden="true" style={choiceKeyBadgeStyle}>
                             {option.value}
@@ -1308,12 +1317,18 @@ export default function MapReview({
                           key={option.value}
                           type="button"
                           data-map-typed-quality={option.value}
+                          disabled={typedRatingFeedback.rated}
                           onMouseDown={(event) => event.preventDefault()}
                           onClick={() => {
                             rateTypedAnswer(option.value);
                             inputRef.current?.focus({ preventScroll: true });
                           }}
-                          style={typedInputRatingButtonStyle}
+                          style={{
+                            ...typedInputRatingButtonStyle,
+                            animation: typedRatingFeedback.ratedQuality === option.value
+                              ? qualityPickAnimation(option.value)
+                              : undefined
+                          }}
                         >
                           <span aria-hidden="true" style={choiceKeyBadgeStyle}>
                             {option.value}
@@ -1419,10 +1434,14 @@ export default function MapReview({
                         key={option.value}
                         type="button"
                         data-map-choice-quality={option.value}
+                        disabled={choiceFeedback.rated}
                         onClick={() => rateChoice(option.value)}
                         style={{
                           ...choiceQualityButtonStyle(),
-                          order: option.value
+                          order: option.value,
+                          animation: choiceFeedback.ratedQuality === option.value
+                            ? qualityPickAnimation(option.value)
+                            : undefined
                         }}
                       >
                         <span aria-hidden="true" style={choiceKeyBadgeStyle}>{option.value}</span>
@@ -1438,6 +1457,7 @@ export default function MapReview({
                   <button
                     type="button"
                     data-map-choice-continue
+                    disabled={choiceFeedback.rated}
                     onClick={() => rateChoice()}
                     style={choiceContinueButtonStyle}
                   >
@@ -1738,7 +1758,10 @@ export default function MapReview({
                               aria-label={buttonTitle}
                               aria-pressed={selected}
                               disabled={disabled}
-                              onClick={() => setFoundZoneQualities(qVal)}
+                              onClick={() => {
+                                setFoundZoneQualities(qVal);
+                                flashRecapQuality("bulk", qVal);
+                              }}
                               style={{
                                 ...recapQualityButtonStyle,
                                 cursor: disabled ? "not-allowed" : "pointer",
@@ -1757,7 +1780,10 @@ export default function MapReview({
                                   : disabled
                                     ? "#555"
                                     : "#999",
-                                opacity: disabled ? 0.65 : 1
+                                opacity: disabled ? 0.65 : 1,
+                                animation: isRecapFlashing("bulk", qVal)
+                                  ? qualityPickAnimation(qVal)
+                                  : undefined
                               }}
                             >
                               {icon}
@@ -1913,6 +1939,7 @@ export default function MapReview({
                                   onClick={(event) => {
                                     event.stopPropagation();
                                     setQuality(item.question_id, qVal);
+                                    flashRecapQuality(item.question_id, qVal);
                                   }}
                                   style={{
                                     ...recapQualityButtonStyle,
@@ -1925,7 +1952,10 @@ export default function MapReview({
                                       : "#222",
                                     color: selected
                                       ? activeStyle.color
-                                      : "#999"
+                                      : "#999",
+                                    animation: isRecapFlashing(item.question_id, qVal)
+                                      ? qualityPickAnimation(qVal)
+                                      : undefined
                                   }}
                                 >
                                   {icon}

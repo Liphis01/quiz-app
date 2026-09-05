@@ -10,6 +10,7 @@ import {
 } from "../mapModes";
 import { matchesAnswerValue } from "../answerPolicy";
 import { buildChoiceOptions as buildConfusableChoiceOptions } from "../distractorSelection";
+import { qualityPickHoldMs } from "../../../shared/answerFeedback";
 
 export const MAP_RECAP_UNANSWERED = "unanswered";
 
@@ -335,6 +336,9 @@ export function useMapReview(
   const [submitError, setSubmitError] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const submittingRef = useRef(false);
+  const choiceRateTimeoutRef = useRef(null);
+  const clickRateTimeoutRef = useRef(null);
+  const typedRateTimeoutRef = useRef(null);
   const reviewKey = `${mode}:${itemKey(reviewZones)}`;
   const distractorUsageRef = useRef({
     reviewKey: null,
@@ -348,6 +352,9 @@ export function useMapReview(
   const distractorUsage = resetDistractorUsageForReviewKey(distractorUsageRef, reviewKey);
 
   useEffect(() => {
+    window.clearTimeout(choiceRateTimeoutRef.current);
+    window.clearTimeout(clickRateTimeoutRef.current);
+    window.clearTimeout(typedRateTimeoutRef.current);
     setInput("");
     setFoundQuestionIds([]);
     setResolvedQuestionIds([]);
@@ -377,6 +384,12 @@ export function useMapReview(
       recordedChoiceKeys: new Set()
     };
   }, [reviewKey]);
+
+  useEffect(() => () => {
+    window.clearTimeout(choiceRateTimeoutRef.current);
+    window.clearTimeout(clickRateTimeoutRef.current);
+    window.clearTimeout(typedRateTimeoutRef.current);
+  }, []);
 
   useEffect(() => {
     if (!incorrectFlashId && !correctFlashId && !duplicateFlashId) {
@@ -916,36 +929,67 @@ export function useMapReview(
   // the reveal so the next prompt surfaces. A wrong pick stays quality 0.
   function rateChoice(quality) {
     if (!choiceFeedback || !inlineChoiceRating) return;
+    if (choiceFeedback.rated) return;
 
-    if (quality !== undefined && quality !== null) {
-      setQuality(choiceFeedback.correctQuestionId, quality);
-    }
+    const { id, correctQuestionId } = choiceFeedback;
 
-    setChoiceFeedback(null);
+    // Mark the pick rated (drives the button's animation + disables its
+    // siblings) without touching the fields the tile's own reveal animation
+    // and useFlip key depend on, then hold the actual grade+advance until
+    // that animation has had time to finish.
+    setChoiceFeedback(current =>
+      current?.id === id ? { ...current, rated: true, ratedQuality: quality } : current
+    );
+
+    choiceRateTimeoutRef.current = window.setTimeout(() => {
+      if (quality !== undefined && quality !== null) {
+        setQuality(correctQuestionId, quality);
+      }
+
+      setChoiceFeedback(current => (current?.id === id ? null : current));
+    }, qualityPickHoldMs(quality ?? 0));
   }
 
   function rateClickAnswer(quality = 2) {
     if (!clickRatingFeedback || !inlineClickRating) return;
+    if (clickRatingFeedback.rated) return;
 
     const nextQuality = Number(quality);
 
     if (![1, 2, 3].includes(nextQuality)) return;
 
-    setQuality(clickRatingFeedback.questionId, nextQuality);
-    setClickRatingFeedback(null);
-    advanceAfterResolved(clickRatingFeedback.item);
+    const { id, questionId, item } = clickRatingFeedback;
+
+    setClickRatingFeedback(current =>
+      current?.id === id ? { ...current, rated: true, ratedQuality: nextQuality } : current
+    );
+
+    clickRateTimeoutRef.current = window.setTimeout(() => {
+      setQuality(questionId, nextQuality);
+      setClickRatingFeedback(current => (current?.id === id ? null : current));
+      advanceAfterResolved(item);
+    }, qualityPickHoldMs(nextQuality));
   }
 
   function rateTypedAnswer(quality = 2) {
     if (!typedRatingFeedback || !inlineTypedRating) return;
+    if (typedRatingFeedback.rated) return;
 
     const nextQuality = Number(quality);
 
     if (![1, 2, 3].includes(nextQuality)) return;
 
-    setQuality(typedRatingFeedback.questionId, nextQuality);
-    setTypedRatingFeedback(null);
-    advanceAfterResolved(typedRatingFeedback.item);
+    const { id, questionId, item } = typedRatingFeedback;
+
+    setTypedRatingFeedback(current =>
+      current?.id === id ? { ...current, rated: true, ratedQuality: nextQuality } : current
+    );
+
+    typedRateTimeoutRef.current = window.setTimeout(() => {
+      setQuality(questionId, nextQuality);
+      setTypedRatingFeedback(current => (current?.id === id ? null : current));
+      advanceAfterResolved(item);
+    }, qualityPickHoldMs(nextQuality));
   }
 
   function setQuality(id, quality) {

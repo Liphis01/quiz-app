@@ -1,6 +1,7 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import MapReview from "./MapReview";
+import { qualityPickHoldMs } from "../../../shared/answerFeedback";
 
 const mapAutoZoomStorageKey = "quizApp.mapReview.autoZoomEnabled";
 
@@ -88,9 +89,14 @@ function choiceButtonName(label) {
 function rateTypedMapQuality(quality = 2) {
   const button = document.querySelector(`[data-map-typed-quality="${quality}"]`);
 
-  if (button) {
-    fireEvent.click(button);
-  }
+  if (!button) return;
+
+  vi.useFakeTimers();
+  fireEvent.click(button);
+  act(() => {
+    vi.advanceTimersByTime(qualityPickHoldMs(quality));
+  });
+  vi.useRealTimers();
 }
 
 function orderedChoiceSlots(grid) {
