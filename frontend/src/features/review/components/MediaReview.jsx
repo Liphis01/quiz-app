@@ -3502,10 +3502,16 @@ export default function MediaReview({
 
                   if (quality !== null) {
                     event.preventDefault();
+                    // Consume the key here: rating this answer can flip the
+                    // review into result mode in the same synchronous update,
+                    // which would otherwise mount the recap's own keydown
+                    // listener in time to catch this same bubbling event.
+                    event.stopPropagation();
                     rateTypedAnswer(quality);
                     focusAnswerInput();
                   } else if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();
+                    event.stopPropagation();
                     rateTypedAnswer(typedRatingDefaultQuality);
                     focusAnswerInput();
                   }
@@ -3514,6 +3520,12 @@ export default function MediaReview({
 
 	                if (event.key === "Enter") {
 		                  event.preventDefault();
+		                  // Consume the key here: a correct answer flips showTypedRating
+		                  // on in the same synchronous update, which would otherwise mount
+		                  // the global typed-rating listener in time to catch this same
+		                  // bubbling event and instantly auto-grade the answer it just
+		                  // revealed the buttons for.
+		                  event.stopPropagation();
 		                  const matched = handleSubmit();
 		                  if (matched === false) {
 		                    setWrongInputShakeId(Date.now());
