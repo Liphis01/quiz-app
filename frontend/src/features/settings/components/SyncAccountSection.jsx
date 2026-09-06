@@ -35,7 +35,7 @@ function SyncAccountSectionFromHook() {
   return <SyncAccountSectionView sync={sync} />;
 }
 
-function SyncAccountSectionView({ sync }) {
+function SyncAccountSectionView({ sync, username }) {
   const status = sync.status || {};
   const serverVersion = sync.serverVersion;
   const serverError = status.server_reachable === false
@@ -77,7 +77,7 @@ function SyncAccountSectionView({ sync }) {
             <div className="settings-row settings-row-priority">
               <div className="settings-row-copy">
                 <strong>
-                  Connecté en tant que {sync.status.account_email}
+                  Connecté en tant que {username || sync.status.account_email}
                 </strong>
                 <span>
                   Dernière version synchronisée : v
@@ -291,10 +291,10 @@ function SyncAccountSectionView({ sync }) {
   );
 }
 
-export default function SyncAccountSection({ sync }) {
+export default function SyncAccountSection({ sync, username }) {
   if (!sync) {
     return <SyncAccountSectionFromHook />;
   }
 
-  return <SyncAccountSectionView sync={sync} />;
+  return <SyncAccountSectionView sync={sync} username={username} />;
 }

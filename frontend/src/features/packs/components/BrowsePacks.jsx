@@ -1110,6 +1110,27 @@ function PackDetailPanel({
             Se désabonner
           </button>
         )}
+
+        {canUnsubscribe && (
+          <button
+            type="button"
+            className="pack-danger-button"
+            disabled={action.busy}
+            onClick={() => {
+              const confirmed = window.confirm(
+                `Supprimer « ${entry.name} » et toutes ses questions ? ` +
+                "Une sauvegarde est créée automatiquement, mais le pack et " +
+                "sa progression disparaissent immédiatement d'ici."
+              );
+
+              if (confirmed) {
+                onUnsubscribe(entry.pack_guid, { deleteContent: true });
+              }
+            }}
+          >
+            Supprimer
+          </button>
+        )}
       </div>
 
       {status === "local_copy" && (

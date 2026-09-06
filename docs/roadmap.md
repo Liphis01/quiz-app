@@ -17,6 +17,8 @@
 - splitting groups based on their difficulty is great but if you give the same mode to both groups, why split them in the first place ?
 - l'animation des inline quality n'a pas le temps d'être vue car le bouton disparaît trop vite (quand même zoomer sur la zone suivante mais laisser le temps de voir l'animation)
 -> pas sûr qu'il y ait une animation dans tous les modes en fait
+- afficher le pseudo plutot que l'email
+- mettre un bouton supprimer le pack si on l'a importé par erreur
 
 
 ## Urgent
@@ -29,7 +31,6 @@
 - dire clairement qu'il faut attendre 5 min pour refaire les erreurs
 - pour type prompt valider automatiquement au lieu de entrer
 - une question maitrisée est uniquement en type all ? -> un doute entre deux réponses = pas puni
-- how is the mode for relearning chosen ? shouldn't we keep the same mode or one with similar difficulty ?
 - le zoom d'image est un peu naze
 - problème: les qcm ne demandent parfois pas de réflexion (raisonner pas élimination) et reportent à plus tard même lorsqu'on met dur -> réduire le threshold du choix du mode en fonction du progress de la question ?
 - demander si on veut ajouter le pack à la review au moment de l'importer ?
@@ -41,11 +42,9 @@
 - quand je réponds à la moitié d'un groupe dans la review, enregistrer localement les réponses et ne pas attendre la fin du groupe pour enregistrer
 - mieux afficher les relearning
 - l'email supabase
-- mettre un bouton supprimer le pack si on l'a importé par erreur
 - bug: si je me trompe à une question et que je change dans le recap, ça me l'envoie quand même dans le relearning
 - bouton pour shuffle un groupe dans le queue manager
 - inline pour type_prompt d'images
-- afficher le pseudo plutot que l'email
 - mettre un input optionnel pour les questions de type texte
 - gros temps de chargement quand je rentre dans la review
 - les modes d'associations (qcm, text truc, ...) ne doivent pas apparaître s'il y a moins de x éléments

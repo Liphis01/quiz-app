@@ -701,6 +701,50 @@ describe("BrowsePacks", () => {
     });
   });
 
+  it("deletes an installed pack's content after confirmation", () => {
+    const unsubscribe = vi.fn();
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    defaultHook({
+      items: [item(textEntry, "up_to_date", 1)],
+      total: 1,
+      hasMore: false,
+      unsubscribe
+    });
+
+    render(<BrowsePacks setMode={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Supprimer" }));
+
+    expect(window.confirm).toHaveBeenCalledTimes(1);
+    expect(unsubscribe).toHaveBeenCalledWith("biology-text", {
+      deleteContent: true
+    });
+
+    window.confirm.mockRestore();
+  });
+
+  it("does not delete an installed pack when the confirmation is declined", () => {
+    const unsubscribe = vi.fn();
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    defaultHook({
+      items: [item(textEntry, "up_to_date", 1)],
+      total: 1,
+      hasMore: false,
+      unsubscribe
+    });
+
+    render(<BrowsePacks setMode={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Supprimer" }));
+
+    expect(window.confirm).toHaveBeenCalledTimes(1);
+    expect(unsubscribe).not.toHaveBeenCalled();
+
+    window.confirm.mockRestore();
+  });
+
   it("shows tags, themes, and an estimated time for the selected pack", () => {
     defaultHook({
       items: [

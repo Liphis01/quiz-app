@@ -5,6 +5,7 @@ import {
   resetCollection
 } from "../../../api/backup";
 import { getPackCatalogDiagnostics } from "../../../api/packs";
+import { getProfile } from "../../../api/profile";
 import {
   getReviewSettings,
   rebalanceReviewCalendar,
@@ -83,13 +84,13 @@ function syncRailLabel(sync) {
   return sync.signedIn ? "Connecté" : "Non connecté";
 }
 
-function syncRailCaption(sync) {
+function syncRailCaption(sync, username) {
   if (!sync.status) {
     return "...";
   }
 
   return sync.signedIn
-    ? sync.status.account_email || "Compte connecté"
+    ? username || sync.status.account_email || "Compte connecté"
     : "Aucun compte connecté";
 }
 
@@ -98,6 +99,7 @@ function SettingsRail({
   target,
   tierLabel,
   sync,
+  username,
   exporting,
   importing,
   resetting,
@@ -114,7 +116,7 @@ function SettingsRail({
         >
           {syncRailLabel(sync)}
         </strong>
-        <span>{syncRailCaption(sync)}</span>
+        <span>{syncRailCaption(sync, username)}</span>
       </div>
 
       <div className="settings-rail-card">
@@ -307,6 +309,32 @@ export default function Settings({
   const [catalogDiagnosticError, setCatalogDiagnosticError] = useState("");
 
   const sync = useSyncAccount();
+  const [accountUsername, setAccountUsername] = useState(null);
+
+  useEffect(() => {
+    if (!sync.signedIn) {
+      setAccountUsername(null);
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    getProfile()
+      .then((profile) => {
+        if (!cancelled) {
+          setAccountUsername(profile?.profile?.username || null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAccountUsername(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sync.signedIn]);
 
   useEffect(() => {
     const screen = document.querySelector(".settings-groups");
@@ -550,6 +578,7 @@ export default function Settings({
                 : "Personnalisé"
             }
             sync={sync}
+            username={accountUsername}
             exporting={exporting}
             importing={importing}
             resetting={resetting}
@@ -557,7 +586,7 @@ export default function Settings({
           />
 
           <main className="settings-groups app-scrollbar" aria-label="Paramètres">
-            <SyncAccountSection sync={sync} />
+            <SyncAccountSection sync={sync} username={accountUsername} />
 
             <SettingsGroup
               id="settings-review"
