@@ -129,6 +129,17 @@ const unansweredQualityOption = {
   title: "Non répondu"
 };
 
+// Shared by the recap row buttons and the Left/Right keyboard shortcut so both
+// cycle through exactly the grades a given row can take (a relearning zone
+// only ever offers Encore/Acquis, an unresolved zone also offers "Non répondu").
+function recapRowQualityOptions(rowRelearning, canBeUnanswered) {
+  return rowRelearning
+    ? relearningQualityOptions
+    : canBeUnanswered
+      ? [unansweredQualityOption, ...qualityOptions]
+      : qualityOptions;
+}
+
 const recapHeaderColumns = [
   { key: "answer", label: "Réponse" },
   { key: "success", label: "Réussite" },
@@ -926,6 +937,25 @@ export default function MapReview({
 
       if (!showQualityControls) return;
 
+      if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+        const focusedRow = recapRows.find(row => row.item.code === focusedCode);
+        if (!focusedRow) return;
+
+        event.preventDefault();
+        const rowRelearning = isRelearningGroupItem(group, focusedRow.item);
+        const options = recapRowQualityOptions(rowRelearning, focusedRow.canBeUnanswered);
+        const currentQuality = qualityByQuestionId[focusedRow.item.question_id]
+          ?? (focusedRow.isFound ? (rowRelearning ? GOT_IT_QUALITY : 2) : 0);
+        const currentIndex = options.findIndex(option => option.value === currentQuality);
+        const delta = event.key === "ArrowRight" ? 1 : -1;
+        const nextIndex = Math.min(
+          options.length - 1,
+          Math.max(0, (currentIndex === -1 ? 0 : currentIndex) + delta)
+        );
+        setQuality(focusedRow.item.question_id, options[nextIndex].value);
+        return;
+      }
+
       // Accept the character (0-3) or the physical key, so the shortcut works
       // on AZERTY layouts where the top-row digits need Shift.
       const quality = eventDigit(event, { min: 0, max: 3 });
@@ -941,7 +971,7 @@ export default function MapReview({
 
     window.addEventListener("keydown", handleRecapKeyDown);
     return () => window.removeEventListener("keydown", handleRecapKeyDown);
-  }, [showRecap, recapRows, focusedCode, selectRecapZone, setQuality, showQualityControls]);
+  }, [showRecap, recapRows, focusedCode, selectRecapZone, setQuality, showQualityControls, group, qualityByQuestionId]);
 
   return (
     <>
@@ -1598,7 +1628,7 @@ export default function MapReview({
 
                 <div style={recapKeyboardHintStyle}>
                   ↑/↓ pour naviguer
-                  {showQualityControls ? " · 0-3 pour noter" : ""}
+                  {showQualityControls ? " · 0-3 ou ←/→ pour noter" : ""}
                 </div>
               </div>
 
@@ -1833,11 +1863,7 @@ export default function MapReview({
                         );
                     // A relearning zone collapses to the binary Encore/Acquis
                     // choice; the grade is never re-applied to FSRS.
-                    const rowQualityOptions = rowRelearning
-                      ? relearningQualityOptions
-                      : canBeUnanswered
-                        ? [unansweredQualityOption, ...qualityOptions]
-                        : qualityOptions;
+                    const rowQualityOptions = recapRowQualityOptions(rowRelearning, canBeUnanswered);
 
                     return (
                       <Fragment key={item.question_id}>

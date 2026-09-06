@@ -95,6 +95,24 @@ const unansweredQualityOption = {
   title: "Non répondu"
 };
 
+// Shared by the recap row buttons and the Left/Right keyboard shortcut so both
+// cycle through exactly the grades a given row can take (a relearning retry
+// only ever offers Encore/Acquis, an unresolved row also offers "Non répondu").
+function recapRowQualityOptions(rowRelearning, canBeUnanswered) {
+  const baseQualityOptions = rowRelearning ? relearningQualityOptions : qualityOptions;
+  return canBeUnanswered
+    ? [unansweredQualityOption, ...baseQualityOptions]
+    : baseQualityOptions;
+}
+
+// A relearning grade is binary: any stored success (>= GOT_IT_QUALITY) means
+// "Acquis" is highlighted, 0 means "Encore" — same collapse the row buttons use.
+function recapDisplayQuality(rowRelearning, selectedQuality) {
+  return rowRelearning && selectedQuality !== IMAGE_RECAP_UNANSWERED
+    ? (selectedQuality >= GOT_IT_QUALITY ? GOT_IT_QUALITY : 0)
+    : selectedQuality;
+}
+
 const qualityButtonStyles = {
   0: {
     background: "#3a3420",
@@ -1514,16 +1532,31 @@ export default function MediaReview({
         return;
       }
 
+      const selectedRow = effectiveRecapRows.find(
+        row => row.item.question_id === selectedRecapQuestionId
+      ) || effectiveRecapRows[0];
+      if (!selectedRow) return;
+
+      if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+        event.preventDefault();
+        const rowRelearning = isRelearningGroupItem(group, selectedRow.item);
+        const options = recapRowQualityOptions(rowRelearning, selectedRow.canBeUnanswered);
+        const currentQuality = recapDisplayQuality(rowRelearning, selectedRow.selectedQuality);
+        const currentIndex = options.findIndex(option => option.value === currentQuality);
+        const delta = event.key === "ArrowRight" ? 1 : -1;
+        const nextIndex = Math.min(
+          options.length - 1,
+          Math.max(0, (currentIndex === -1 ? 0 : currentIndex) + delta)
+        );
+        setQuality(selectedRow.item.question_id, options[nextIndex].value);
+        return;
+      }
+
       // Accept the character (0-3) or the physical key, so the shortcut works
       // on AZERTY layouts where the top-row digits need Shift.
       const quality = eventDigit(event, { min: 0, max: 3 });
 
       if (quality === null) return;
-
-      const selectedRow = effectiveRecapRows.find(
-        row => row.item.question_id === selectedRecapQuestionId
-      ) || effectiveRecapRows[0];
-      if (!selectedRow) return;
 
       event.preventDefault();
       setQuality(selectedRow.item.question_id, quality);
@@ -1531,7 +1564,7 @@ export default function MediaReview({
 
     window.addEventListener("keydown", handleRecapKeyDown);
     return () => window.removeEventListener("keydown", handleRecapKeyDown);
-  }, [showResultRecap, effectiveRecapRows, selectedRecapQuestionId, setQuality, previewRow]);
+  }, [showResultRecap, effectiveRecapRows, selectedRecapQuestionId, setQuality, previewRow, group]);
 
   useEffect(() => {
     if (!previewRow) return undefined;
@@ -2758,7 +2791,7 @@ export default function MediaReview({
               <div style={imageRecapTypeBadgeStyle}>MÉDIA</div>
               <div style={imageRecapTitleStyle}>Résultat</div>
               <div style={imageRecapKeyboardHintStyle}>
-                ↑/↓ pour naviguer · 0-3 pour noter
+                ↑/↓ pour naviguer · 0-3 ou ←/→ pour noter
               </div>
             </div>
 
@@ -3014,20 +3047,10 @@ export default function MediaReview({
                     row.isFound ? 2 : 0
                   );
                   const rowRelearning = isRelearningGroupItem(group, row.item);
-                  const baseQualityOptions = rowRelearning
-                    ? relearningQualityOptions
-                    : qualityOptions;
-                  // A relearning grade is binary: any stored success (≥1)
-                  // highlights "Acquis", 0 highlights "Encore".
-                  const displaySelectedQuality =
-                    rowRelearning && selectedQuality !== IMAGE_RECAP_UNANSWERED
-                      ? (selectedQuality >= GOT_IT_QUALITY ? GOT_IT_QUALITY : 0)
-                      : selectedQuality;
+                  const displaySelectedQuality = recapDisplayQuality(rowRelearning, selectedQuality);
                   const projectedInterval = row.projectedInterval ??
                     projectedIntervalForImage(row.item, selectedQuality);
-                  const rowQualityOptions = row.canBeUnanswered
-                    ? [unansweredQualityOption, ...baseQualityOptions]
-                    : baseQualityOptions;
+                  const rowQualityOptions = recapRowQualityOptions(rowRelearning, row.canBeUnanswered);
 
                   return (
                     <Fragment key={row.item.question_id}>

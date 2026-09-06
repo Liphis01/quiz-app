@@ -15,6 +15,9 @@
 - ajouter search input dans le groupe de texte
 - ajouter avec un bouton en dessous de la dernière ligne comme dans les medias
 - splitting groups based on their difficulty is great but if you give the same mode to both groups, why split them in the first place ?
+- l'animation des inline quality n'a pas le temps d'être vue car le bouton disparaît trop vite (quand même zoomer sur la zone suivante mais laisser le temps de voir l'animation)
+-> pas sûr qu'il y ait une animation dans tous les modes en fait
+
 
 ## Urgent
 - bouton synchroniser depuis le menu (push pull)
@@ -47,12 +50,9 @@
 - gros temps de chargement quand je rentre dans la review
 - les modes d'associations (qcm, text truc, ...) ne doivent pas apparaître s'il y a moins de x éléments
 - type_all media n'a pas de inline quality et type_prompt non plus
-- l'animation des inline quality n'a pas le temps d'être vue car le bouton disparaît trop vite (quand même zoomer sur la zone suivante mais laisser le temps de voir l'animation)
--> pas sûr qu'il y ait une animation dans tous les modes en fait
 - everytime i go back to the main menu, I see that the rebalancing added a few questions to today's queue.
 - flèches de gauche et droite pour changer la qualité dans recap
 - le retour arrière ne fonctionne pas comme il faut partout
-- bug du flou avec la qualité pas corrigé
 - enlever le type_all mais ajouter un mode one shot sans erreur autorisée
 
 
@@ -66,11 +66,13 @@
 - scroll automatique à enlever quand on quitte la preview d'une image de 
 - pouvoir zoomer sur les images pour les questions isolées
 - ajouter le nombre de questions des groupes media (et d'autres ?)
+- 
 
 ## bugs
 
 - il faudrait charger la question suivante pendant qu'on répond à celle d'avant et pas avant
 - si j'ai un groupe split en deux dans la review, je crois que le relearning les garde séparés en deux groupes au lieu de les regrouper
+- bug du flou avec la qualité pas corrigé
 
 ## to do when i have more time
 
@@ -130,6 +132,7 @@
 - un truc pour relier les questions entre elles (ex: france -> pays du monde, capitale, drapeau, ...)
 - comment interroger sur les explorateurs pour tenir compte de l'année et de ce qu'ils ont découvert ?
 - un mode où il faut ranger des trucs (par exemple des musiques parmi leurs albums, des auteurs parmi leurs mouvements littéraires, ...)
+- générer le jeu de société timeline à partir de la db (soit en review soit en mode training)
 
 
 ## Conseils/idées issus de la littérature scientifique
