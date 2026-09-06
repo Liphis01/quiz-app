@@ -12,6 +12,7 @@ import {
 } from "../relearningGrades";
 import { matchesAnswerValue } from "../answerPolicy";
 import { eventDigit } from "../keyboardShortcuts";
+import { clearGroupDraft, loadGroupDraft, saveGroupDraft } from "../groupAnswerDraft";
 import { qualityPickAnimation } from "../../../shared/answerFeedback";
 import { useQualityPickFlash, useQualityPickHold } from "../../../shared/useQualityPickHold";
 
@@ -166,35 +167,92 @@ export default function TextGroupReview({
   showQualityControls = true,
   fillAvailableHeight = false
 }) {
-  const mode = normalizeTextMode(requestedMode);
+  const items = useMemo(() => reviewItems || [], [reviewItems]);
+  // Identifies this exact group instance (the group plus its current item
+  // set) so a draft never leaks across an unrelated group, or from a full
+  // group into a same-group retry batch that only carries the failed items.
+  const groupKey = useMemo(() => {
+    const identity = group?.group_id ?? group?.question_id ?? group?.id ?? group?.name;
+    return identity != null ? `text:${identity}` : null;
+  }, [group]);
+  const itemIds = useMemo(() => items.map(item => item.question_id), [items]);
+  const [draft] = useState(() => loadGroupDraft(groupKey, itemIds));
+
+  // A restored draft keeps the mode it was started under: the saved answers
+  // only make sense in that mode, so resuming takes priority over whatever
+  // mode this fetch happened to roll for the group.
+  const mode = normalizeTextMode(draft?.mode ?? requestedMode);
   const isMatch = mode === TEXT_MODE_MATCH;
   const isSelfGradedTypeAll = showQualityControls && !isMatch;
-  const items = useMemo(() => reviewItems || [], [reviewItems]);
 
-  const [phase, setPhase] = useState("answer");
-  const [selfGradeIndex, setSelfGradeIndex] = useState(0);
-  const [selfGradeAnswerVisible, setSelfGradeAnswerVisible] = useState(false);
+  const [phase, setPhase] = useState(() => draft?.phase === "recap" ? "recap" : "answer");
+  const [selfGradeIndex, setSelfGradeIndex] = useState(() => draft?.selfGradeIndex ?? 0);
+  const [selfGradeAnswerVisible, setSelfGradeAnswerVisible] = useState(() => Boolean(draft?.selfGradeAnswerVisible));
   // type_all
   const [inputs, setInputs] = useState({});
-  const [foundIds, setFoundIds] = useState(() => new Set());
+  const [foundIds, setFoundIds] = useState(() => new Set(draft?.foundIds || []));
   const [duplicateNoticeByQuestionId, setDuplicateNoticeByQuestionId] = useState({});
   const [wrongShakeByQuestionId, setWrongShakeByQuestionId] = useState({});
   // match
   const [selectedPromptId, setSelectedPromptId] = useState(null);
-  const [matchedIds, setMatchedIds] = useState(() => new Set());
-  const [failedIds, setFailedIds] = useState(() => new Set());
+  const [matchedIds, setMatchedIds] = useState(() => new Set(draft?.matchedIds || []));
+  const [failedIds, setFailedIds] = useState(() => new Set(draft?.failedIds || []));
   const [wrongFlash, setWrongFlash] = useState(null);
   const [hoveredPairId, setHoveredPairId] = useState(null);
   // What the learner actually typed/picked per item, for M0 0.1 (storing the
   // given answer).
-  const [answersByQuestionId, setAnswersByQuestionId] = useState({});
+  const [answersByQuestionId, setAnswersByQuestionId] = useState(() => draft?.answersByQuestionId || {});
   // recap
-  const [qualities, setQualities] = useState({});
-  const [pendingQualityQuestionId, setPendingQualityQuestionId] = useState(null);
+  const [qualities, setQualities] = useState(() => draft?.qualities || {});
+  const [pendingQualityQuestionId, setPendingQualityQuestionId] = useState(() => draft?.pendingQualityQuestionId ?? null);
   const { pendingQuality: pendingHoldQuality, hold: holdQuality } = useQualityPickHold();
   const { flashQuality: flashRecapQuality, isFlashing: isRecapFlashing } = useQualityPickFlash();
   const [submitting, setSubmitting] = useState(false);
-  const [selectedRecapIndex, setSelectedRecapIndex] = useState(0);
+  const [selectedRecapIndex, setSelectedRecapIndex] = useState(() => draft?.selectedRecapIndex ?? 0);
+
+  // Autosave: only once there is a real attempt to protect (an untouched
+  // group stays freely re-rollable), and cleared again once nothing is left.
+  useEffect(() => {
+    const hasProgress =
+      Object.keys(answersByQuestionId).length > 0 ||
+      foundIds.size > 0 ||
+      matchedIds.size > 0 ||
+      failedIds.size > 0 ||
+      Object.keys(qualities).length > 0;
+
+    if (!hasProgress) {
+      clearGroupDraft(groupKey);
+      return;
+    }
+
+    saveGroupDraft(groupKey, itemIds, {
+      mode,
+      phase,
+      foundIds: [...foundIds],
+      matchedIds: [...matchedIds],
+      failedIds: [...failedIds],
+      answersByQuestionId,
+      qualities,
+      pendingQualityQuestionId,
+      selfGradeIndex,
+      selfGradeAnswerVisible,
+      selectedRecapIndex
+    });
+  }, [
+    groupKey,
+    itemIds,
+    mode,
+    phase,
+    foundIds,
+    matchedIds,
+    failedIds,
+    answersByQuestionId,
+    qualities,
+    pendingQualityQuestionId,
+    selfGradeIndex,
+    selfGradeAnswerVisible,
+    selectedRecapIndex
+  ]);
 
   const answerOrder = useMemo(() => shuffled(items), [items]);
   const inputRefs = useRef({});
@@ -324,6 +382,7 @@ export default function TextGroupReview({
     } catch (error) {
       console.error(error);
     } finally {
+      clearGroupDraft(groupKey);
       onComplete?.(failed);
     }
   }

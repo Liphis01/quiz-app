@@ -280,3 +280,112 @@ describe("TextGroupReview completion guard", () => {
     expect(duplicateInput.selectionEnd).toBe("cat".length);
   });
 });
+
+
+describe("TextGroupReview session draft", () => {
+  afterEach(() => {
+    cleanup();
+    vi.clearAllMocks();
+    window.sessionStorage.clear();
+  });
+
+  const draftItems = [
+    {
+      question_id: 1,
+      question: "chat",
+      answer: "cat",
+      answer_policy: { preset: "relaxed" },
+      progress: {}
+    },
+    {
+      question_id: 2,
+      question: "chien",
+      answer: "dog",
+      answer_policy: { preset: "relaxed" },
+      progress: {}
+    }
+  ];
+
+  function renderDraftGroup(props = {}) {
+    return render(
+      <TextGroupReview
+        group={{ group_id: 42, type_group: "text" }}
+        reviewItems={draftItems}
+        mode="type_all"
+        showQualityControls={false}
+        submitAnswer={vi.fn().mockResolvedValue(undefined)}
+        onComplete={vi.fn()}
+        {...props}
+      />
+    );
+  }
+
+  // The scenario this whole feature exists for: leaving to the menu mid-group
+  // (modelled here as an unmount, since that's what actually happens to this
+  // component when the review session's parent screen swaps out) must not
+  // throw away an answer that was never submitted to the backend.
+  it("restores an in-progress answer after leaving and returning to the same group", async () => {
+    const { unmount } = renderDraftGroup();
+
+    const input = screen.getAllByPlaceholderText("Réponse…")[0];
+    fireEvent.change(input, { target: { value: "cat" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Abandonner le groupe" })).toBeEnabled();
+    });
+
+    unmount();
+    renderDraftGroup();
+
+    expect(screen.getByText("cat")).toBeInTheDocument();
+    expect(screen.getAllByPlaceholderText("Réponse…")).toHaveLength(1);
+  });
+
+  it("keeps the mode the draft was started in, even if a fresh mode is requested on return", async () => {
+    const { unmount } = renderDraftGroup({ mode: "type_all" });
+
+    const input = screen.getAllByPlaceholderText("Réponse…")[0];
+    fireEvent.change(input, { target: { value: "cat" } });
+    fireEvent.keyDown(input, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: "Abandonner le groupe" })).toBeEnabled();
+    });
+
+    unmount();
+    // The backend would otherwise roll a fresh mode on every re-fetch; a
+    // resumed draft must not switch the UI out from under its saved answers.
+    renderDraftGroup({ mode: "match" });
+
+    expect(screen.getByText("TEXTE · Tout taper")).toBeInTheDocument();
+    expect(screen.queryByText("TEXTE · Associer")).not.toBeInTheDocument();
+  });
+
+  it("does not restore anything once the group has been submitted", async () => {
+    const submitAnswer = vi.fn().mockResolvedValue(undefined);
+    const { unmount } = renderDraftGroup({ submitAnswer });
+
+    const inputs = screen.getAllByPlaceholderText("Réponse…");
+    fireEvent.change(inputs[0], { target: { value: "cat" } });
+    fireEvent.keyDown(inputs[0], { key: "Enter" });
+    fireEvent.change(inputs[1], { target: { value: "dog" } });
+    fireEvent.keyDown(inputs[1], { key: "Enter" });
+
+    await waitFor(() => expect(submitAnswer).toHaveBeenCalled());
+
+    unmount();
+    renderDraftGroup();
+
+    expect(screen.getAllByPlaceholderText("Réponse…")).toHaveLength(2);
+  });
+
+  it("leaves an untouched group free to come back in a different mode", () => {
+    const { unmount } = renderDraftGroup({ mode: "type_all" });
+
+    unmount();
+    renderDraftGroup({ mode: "match" });
+
+    expect(screen.getByText("TEXTE · Associer")).toBeInTheDocument();
+  });
+});
